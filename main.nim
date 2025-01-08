@@ -2,14 +2,17 @@ import httpclient
 import json
 import strutils
 import os
-import options
+
 
 const url = "https://raw.githubusercontent.com/robiningelbrecht/wca-rest-api/master/api/competitions/CA.json"
-const config = "./config.json"
+let pwd = getAppDir()
+let config = pwd & "/config.json"
 
 try:
-  let check = open(config,fmRead)
+  discard parseFile(config)
 except:
+  var error = getCurrentException()
+  echo error.msg
   echo "Config file not found. Please run './setup.sh'."
   quit(0)
 
@@ -39,7 +42,7 @@ client.close()
 
 var known_competitions: seq[string] = @[]
 
-let filename = "competitions.txt"
+let filename = pwd & "/competitions.txt"
 var file = open(filename,fmRead)
 known_competitions = readAll(file).split("\n")
 for value in 0..<known_competitions.len:
@@ -67,4 +70,5 @@ if num_new_competitions > 0:
 
   file.close()
 else:
-  echo "No new competitions found."
+  echo "No new competitions found. Known Competitons: "
+  discard os.execShellCmd("cat " & pwd & "/competitions.txt")
