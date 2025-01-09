@@ -7,13 +7,13 @@ import os
 const url = "https://raw.githubusercontent.com/robiningelbrecht/wca-rest-api/master/api/competitions.json"
 let pwd = getAppDir()
 let config = pwd & "/config.json"
+let storage = pwd & "/competitions.txt"
 
 try:
   discard parseFile(config)
+  assert(os.existsFile(storage) == true)
 except:
-  var error = getCurrentException()
-  echo error.msg
-  echo "Config file not found. Please run './setup.sh'."
+  echo "Config files not found. Please run './setup.sh'."
   quit(0)
 
 let config_data = parseFile(config)
@@ -42,8 +42,7 @@ client.close()
 
 var known_competitions: seq[string] = @[]
 
-let filename = pwd & "/competitions.txt"
-var file = open(filename,fmRead)
+var file = open(storage,fmRead)
 known_competitions = readAll(file).split("\n")
 for value in 0..<known_competitions.len:
   known_competitions[value] = known_competitions[value].strip(chars={'\n'})
@@ -62,7 +61,7 @@ if num_new_competitions > 0:
   echo $num_new_competitions & " new competitions found!"
   echo "adding to database..."
 
-  file = open(filename,fmAppend)
+  file = open(storage,fmAppend)
 
   for index in 0..<new_competitions.len:
     if new_competitions[index] != "%":
