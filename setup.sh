@@ -15,6 +15,6 @@ else
 
 fi
 
-touch competitions.txt
+echo "" > competitions.txt
 
 echo "setup complete"

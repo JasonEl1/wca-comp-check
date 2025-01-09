@@ -4,7 +4,7 @@ import strutils
 import os
 
 
-const url = "https://raw.githubusercontent.com/robiningelbrecht/wca-rest-api/master/api/competitions/CA.json"
+const url = "https://raw.githubusercontent.com/robiningelbrecht/wca-rest-api/master/api/competitions.json"
 let pwd = getAppDir()
 let config = pwd & "/config.json"
 
