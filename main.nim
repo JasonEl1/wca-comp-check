@@ -2,72 +2,81 @@ import httpclient
 import json
 import strutils
 import os
+import times
 
-
+#url / path constants
 const url = "https://raw.githubusercontent.com/robiningelbrecht/wca-rest-api/master/api/competitions.json"
 let pwd = getAppDir()
 let config = pwd & "/config.json"
 let storage = pwd & "/competitions.txt"
 
-try:
+let current_date = now()
+
+try: #check if config file exists
   discard parseFile(config)
-  assert(os.existsFile(storage) == true)
 except:
   echo "Config files not found. Please run './setup.sh'."
   quit(0)
 
+try:
+  assert(os.fileExists(storage) == true)
+except:
+  discard os.execShellCmd("touch competitions.txt")
+
+proc get_known_competitions(storage: string): seq[string]= # get sequence of known competitions
+  var file = open(storage,fmRead)
+  var known_competitions: seq[string] = @[]
+  known_competitions = readAll(file).split("\n")
+  for value in 0..<known_competitions.len:
+    known_competitions[value] = known_competitions[value].strip(chars={'\n'})
+  file.close()
+  return known_competitions
+
+# get config data from file
 let config_data = parseFile(config)
 let region = config_data["region"].getStr()
 
 let client = newHttpClient()
 
-var indices: seq[int]
+var new_competitions: seq[string] = @[]
+var known_competitions = get_known_competitions(storage)
+var num_new: int = 0
 
 let response = client.getContent(url)
 let parsed = parseJson(response)["items"]
 let num_competitions = len(parsed)
 for i in 0..(num_competitions-1):
-  let year = parsed[i]["date"]["from"].getStr()[0..3]
-  if year == "2025": # make sure this stays up to date
+  let is_known = parsed[i]["name"].getStr() in known_competitions
+  let date = parse(parsed[i]["date"]["till"].getStr(),"yyyy-MM-dd")
+  if (date - current_date).inDays > 0:
     let city = parsed[i]["city"].getStr()
-    if region in city:
-      indices.add(i)
-
-var new_competitions: seq[string] = @[]
-
-for index in indices:
-  new_competitions.add(parsed[index]["name"].getStr())
+    if region in city and not is_known:
+      new_competitions.add(parsed[i]["name"].getStr())
+      echo $(parsed[i]["name"].getStr()) & " is new!"
+      inc num_new
+  else:
+    if(is_known):
+      known_competitions.delete(known_competitions.find(parsed[i]["name"].getStr()))
+      echo $(parsed[i]["name"].getStr()) & " has passed."
+      echo "removing from database..."
 
 client.close()
 
-var known_competitions: seq[string] = @[]
-
-var file = open(storage,fmRead)
-known_competitions = readAll(file).split("\n")
-for value in 0..<known_competitions.len:
-  known_competitions[value] = known_competitions[value].strip(chars={'\n'})
-file.close()
-
-var num_new_competitions = 0
+var file = open(storage,fmWrite)
 
 for index in 0..<new_competitions.len:
-  if new_competitions[index] in known_competitions:
-    new_competitions[index] = "%"
-  else:
-    echo new_competitions[index] & " is new!"
-    inc num_new_competitions
+  if(new_competitions[index] != ""):
+    file.writeLine(new_competitions[index])
+for index in 0..<known_competitions.len:
+  if(known_competitions[index] != ""):
+    file.writeLine(known_competitions[index])
 
-if num_new_competitions > 0:
-  echo $num_new_competitions & " new competitions found!"
-  echo "adding to database..."
+file.close()
 
-  file = open(storage,fmAppend)
-
-  for index in 0..<new_competitions.len:
-    if new_competitions[index] != "%":
-      file.writeLine(new_competitions[index])
-
-  file.close()
+if num_new > 0:
+  echo $num_new & " new competitions found!"
+  echo "adding to database...\n"
 else:
-  echo "No new competitions found. Known Competitons: "
-  discard os.execShellCmd("cat " & pwd & "/competitions.txt")
+  echo "No new competitions found. Known Competitons: \n"
+
+discard os.execShellCmd("cat " & pwd & "/competitions.txt")
